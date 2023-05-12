@@ -1,0 +1,120 @@
+nohup: ignoring input
+Random seed set as 2023
+Namespace(batch_size=32, city_num=207, date_em=4, device='cuda:0', edge_h=12, encoder='self', epoch=50, gnn_h=32, gnn_layer=2, group_num=15, loc_em=4, lr=0.001, mark='', mode='full', pred_step=12, run_times=1, w_init='rand', w_rate=50, wd=0.001, x_em=32)
+34165
+city_model: Trainable, 44375
+/home/hjl/deep_learning_workspace/SandwichGNN/GAGNN_metr_la/model.py:82: UserWarning: Implicit dimension choice for softmax has been deprecated. Change the call to include dim=X as an argument.
+  w = F.softmax(self.w)
+Epoch [0/50], Step [0/747], Loss: 4479029.5000
+Epoch [0/50], Step [100/747], Loss: 1278485.3750
+Epoch [0/50], Step [200/747], Loss: 1187582.6250
+Epoch [0/50], Step [300/747], Loss: 956262.9375
+Epoch [0/50], Step [400/747], Loss: 940475.0625
+Epoch [0/50], Step [500/747], Loss: 1034148.2500
+Epoch [0/50], Step [600/747], Loss: 865821.6875
+Epoch [0/50], Step [700/747], Loss: 956689.3125
+Epoch: 0 , val_loss: 107229078.78923035
+parameters have been updated during epoch  0
+Epoch [5/50], Step [0/747], Loss: 734783.5000
+Epoch [5/50], Step [100/747], Loss: 731776.8750
+Epoch [5/50], Step [200/747], Loss: 945446.1250
+Epoch [5/50], Step [300/747], Loss: 954371.1250
+Epoch [5/50], Step [400/747], Loss: 807507.8125
+Epoch [5/50], Step [500/747], Loss: 921168.6875
+Epoch [5/50], Step [600/747], Loss: 1056352.5000
+Epoch [5/50], Step [700/747], Loss: 1131297.8750
+Epoch: 5 , val_loss: 95792318.0687561
+parameters have been updated during epoch  5
+Epoch [10/50], Step [0/747], Loss: 988394.7500
+Epoch [10/50], Step [100/747], Loss: 822934.6250
+Epoch [10/50], Step [200/747], Loss: 691326.8125
+Epoch [10/50], Step [300/747], Loss: 937566.7500
+Epoch [10/50], Step [400/747], Loss: 832797.8750
+Epoch [10/50], Step [500/747], Loss: 951128.8750
+Epoch [10/50], Step [600/747], Loss: 896448.1875
+Epoch [10/50], Step [700/747], Loss: 754208.2500
+Epoch: 10 , val_loss: 93025373.1875
+parameters have been updated during epoch  10
+Epoch [15/50], Step [0/747], Loss: 796493.7500
+Epoch [15/50], Step [100/747], Loss: 886111.6250
+Epoch [15/50], Step [200/747], Loss: 838303.8750
+Epoch [15/50], Step [300/747], Loss: 702165.7500
+Epoch [15/50], Step [400/747], Loss: 765285.0000
+Epoch [15/50], Step [500/747], Loss: 896782.2500
+Epoch [15/50], Step [600/747], Loss: 864534.0625
+Epoch [15/50], Step [700/747], Loss: 749107.4375
+Epoch: 15 , val_loss: 94681182.6875
+Epoch [20/50], Step [0/747], Loss: 715990.2500
+Epoch [20/50], Step [100/747], Loss: 912411.5000
+Epoch [20/50], Step [200/747], Loss: 737600.8125
+Epoch [20/50], Step [300/747], Loss: 799255.7500
+Epoch [20/50], Step [400/747], Loss: 729117.8125
+Epoch [20/50], Step [500/747], Loss: 947339.0000
+Epoch [20/50], Step [600/747], Loss: 860947.9375
+Epoch [20/50], Step [700/747], Loss: 900044.1250
+Epoch: 20 , val_loss: 91573804.28125
+parameters have been updated during epoch  20
+Epoch [25/50], Step [0/747], Loss: 857350.5625
+Epoch [25/50], Step [100/747], Loss: 779656.7500
+Epoch [25/50], Step [200/747], Loss: 774348.2500
+Epoch [25/50], Step [300/747], Loss: 737614.8750
+Epoch [25/50], Step [400/747], Loss: 858807.8125
+Epoch [25/50], Step [500/747], Loss: 795091.7500
+Epoch [25/50], Step [600/747], Loss: 961274.8750
+Epoch [25/50], Step [700/747], Loss: 704542.0000
+Epoch: 25 , val_loss: 89977677.90625
+parameters have been updated during epoch  25
+Epoch [30/50], Step [0/747], Loss: 759052.9375
+Epoch [30/50], Step [100/747], Loss: 771080.1875
+Epoch [30/50], Step [200/747], Loss: 899748.5625
+Epoch [30/50], Step [300/747], Loss: 821543.6875
+Epoch [30/50], Step [400/747], Loss: 731500.7500
+Epoch [30/50], Step [500/747], Loss: 856624.0000
+Epoch [30/50], Step [600/747], Loss: 853731.1250
+Epoch [30/50], Step [700/747], Loss: 779399.6250
+Epoch: 30 , val_loss: 90095426.6875
+Epoch [35/50], Step [0/747], Loss: 732416.9375
+Epoch [35/50], Step [100/747], Loss: 744144.8750
+Epoch [35/50], Step [200/747], Loss: 793071.6250
+Epoch [35/50], Step [300/747], Loss: 678081.5000
+Epoch [35/50], Step [400/747], Loss: 790538.7500
+Epoch [35/50], Step [500/747], Loss: 700064.2500
+Epoch [35/50], Step [600/747], Loss: 711226.5000
+Epoch [35/50], Step [700/747], Loss: 926619.5000
+Epoch: 35 , val_loss: 81099530.25
+parameters have been updated during epoch  35
+Epoch [40/50], Step [0/747], Loss: 706262.3750
+Epoch [40/50], Step [100/747], Loss: 695333.8750
+Epoch [40/50], Step [200/747], Loss: 714216.4375
+Epoch [40/50], Step [300/747], Loss: 684754.8750
+Epoch [40/50], Step [400/747], Loss: 716496.9375
+Epoch [40/50], Step [500/747], Loss: 697649.3125
+Epoch [40/50], Step [600/747], Loss: 683238.1250
+Epoch [40/50], Step [700/747], Loss: 710133.6250
+Epoch: 40 , val_loss: 82539070.4375
+Epoch [45/50], Step [0/747], Loss: 585259.1250
+Epoch [45/50], Step [100/747], Loss: 699773.8125
+Epoch [45/50], Step [200/747], Loss: 683974.2500
+Epoch [45/50], Step [300/747], Loss: 782897.3750
+Epoch [45/50], Step [400/747], Loss: 666675.4375
+Epoch [45/50], Step [500/747], Loss: 663478.5000
+Epoch [45/50], Step [600/747], Loss: 636398.6250
+Epoch [45/50], Step [700/747], Loss: 693893.7500
+Epoch: 45 , val_loss: 78299061.0625
+parameters have been updated during epoch  45
+train_gagnn_metr_la.py:147: UserWarning: Implicit dimension choice for softmax has been deprecated. Change the call to include dim=X as an argument.
+  w_weight = F.softmax(w_weight)
+[9, 6, 3, 14, 14, 12, 1, 11, 3, 6, 1, 1, 5, 1, 6, 3, 3, 12, 5, 1, 12, 6, 5, 6, 6, 10, 1, 10, 6, 9, 6, 1, 7, 6, 6, 1, 5, 6, 1, 5, 14, 1, 5, 6, 9, 4, 6, 11, 9, 11, 11, 11, 6, 14, 4, 5, 4, 4, 6, 6, 1, 11, 6, 6, 5, 6, 1, 3, 9, 5, 5, 5, 5, 5, 6, 11, 4, 6, 6, 6, 6, 6, 3, 6, 10, 6, 10, 6, 5, 6, 6, 10, 6, 1, 5, 13, 6, 3, 5, 3, 5, 6, 6, 5, 6, 5, 6, 6, 6, 9, 5, 6, 4, 1, 6, 1, 10, 5, 6, 2, 1, 5, 6, 6, 6, 5, 10, 14, 1, 6, 1, 6, 3, 6, 6, 10, 6, 1, 6, 6, 10, 7, 4, 11, 7, 6, 6, 10, 5, 1, 0, 1, 6, 6, 11, 7, 1, 11, 6, 5, 3, 6, 6, 6, 6, 1, 6, 11, 6, 11, 1, 6, 3, 5, 6, 11, 5, 11, 13, 1, 1, 3, 6, 6, 4, 5, 9, 3, 6, 1, 9, 4, 1, 10, 5, 2, 1, 14, 6, 10, 0, 10, 1, 6, 6, 6, 5]
+Running time: 2770.268922328949 Seconds
+mae for new GAGNN: [ 4.0704203  4.375058   4.7088313  5.018335   5.305774   5.644293
+  5.951384   6.1781483  6.456534   6.6783156 50.74086    7.1664314]
+rmse for new GAGNN: [ 8.534444  9.623774 10.508362 11.333928 12.1138   12.763826 13.381919
+ 13.988069 14.43649  14.862222 55.625023 15.643436]
+======================================================================================================
+The mean of NEW MAE for all 1 times:  tensor([ 4.0704,  4.3751,  4.7088,  5.0183,  5.3058,  5.6443,  5.9514,  6.1781,
+         6.4565,  6.6783, 50.7409,  7.1664])
+The mean of NEW RMSE for all 1 times:  tensor([ 8.5344,  9.6238, 10.5084, 11.3339, 12.1138, 12.7638, 13.3819, 13.9881,
+        14.4365, 14.8622, 55.6250, 15.6434])
+The std' of NEW MAE for all 1 times:  tensor([nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+The std' of NEW RMSE for all 1 times:  tensor([nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+======================================================================================================

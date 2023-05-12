@@ -1,0 +1,126 @@
+nohup: ignoring input
+Random seed set as 2023
+Namespace(adj_data='/home/hjl/deep_learning_workspace/SandwichGNN/data/adj_mx.pkl', batch_size=64, d_edge=4, d_ff=8, d_model=8, d_x=8, device='cuda', dropout=0.2, encoder='self', epoch=50, lr=0.001, mark='', mode='full', n_blocks=3, n_heads=4, n_nodes=207, pred_len=12, run_times=1, s_factor=4, seq_len=96, w_init='rand', w_rate=50, wd=0.001, window_size=[2], x_em=8)
+34165
+city_model: Trainable, 46162
+Epoch [0/50], Step [0/373], Loss: 8802110.0000
+Epoch [0/50], Step [100/373], Loss: 3860767.2500
+Epoch [0/50], Step [200/373], Loss: 3665142.5000
+Epoch [0/50], Step [300/373], Loss: 2984404.2500
+Epoch: 0 , val_loss: 232046269.375
+parameters have been updated during epoch  0
+Train epoch 0: 167.143719 seconds
+Train epoch 1: 159.566667 seconds
+Train epoch 2: 159.561143 seconds
+Train epoch 3: 168.580319 seconds
+Train epoch 4: 159.143382 seconds
+Epoch [5/50], Step [0/373], Loss: 2063910.8750
+Epoch [5/50], Step [100/373], Loss: 1934425.1250
+Epoch [5/50], Step [200/373], Loss: 1900453.6250
+Epoch [5/50], Step [300/373], Loss: 1512853.1250
+Epoch: 5 , val_loss: 147829865.75
+parameters have been updated during epoch  5
+Train epoch 5: 168.017369 seconds
+Train epoch 6: 159.727654 seconds
+Train epoch 7: 159.753357 seconds
+Train epoch 8: 159.346113 seconds
+Train epoch 9: 159.447534 seconds
+Epoch [10/50], Step [0/373], Loss: 1602544.7500
+Epoch [10/50], Step [100/373], Loss: 1568215.7500
+Epoch [10/50], Step [200/373], Loss: 1625560.7500
+Epoch [10/50], Step [300/373], Loss: 1324374.2500
+Epoch: 10 , val_loss: 125152319.5625
+parameters have been updated during epoch  10
+Train epoch 10: 168.294613 seconds
+Train epoch 11: 159.782003 seconds
+Train epoch 12: 159.709400 seconds
+Train epoch 13: 159.719658 seconds
+Train epoch 14: 159.157455 seconds
+Epoch [15/50], Step [0/373], Loss: 1505214.2500
+Epoch [15/50], Step [100/373], Loss: 1270753.5000
+Epoch [15/50], Step [200/373], Loss: 1580083.2500
+Epoch [15/50], Step [300/373], Loss: 1197748.2500
+Epoch: 15 , val_loss: 111060964.3125
+parameters have been updated during epoch  15
+Train epoch 15: 167.583233 seconds
+Train epoch 16: 159.306742 seconds
+Train epoch 17: 159.746338 seconds
+Train epoch 18: 159.747460 seconds
+Train epoch 19: 159.727084 seconds
+Epoch [20/50], Step [0/373], Loss: 1393189.8750
+Epoch [20/50], Step [100/373], Loss: 1410352.3750
+Epoch [20/50], Step [200/373], Loss: 1517053.1250
+Epoch [20/50], Step [300/373], Loss: 1833423.2500
+Epoch: 20 , val_loss: 114444770.875
+Train epoch 20: 168.365879 seconds
+Train epoch 21: 159.701290 seconds
+Train epoch 22: 159.722011 seconds
+Train epoch 23: 159.703316 seconds
+Train epoch 24: 159.690345 seconds
+Epoch [25/50], Step [0/373], Loss: 1239600.2500
+Epoch [25/50], Step [100/373], Loss: 1244229.6250
+Epoch [25/50], Step [200/373], Loss: 1257742.1250
+Epoch [25/50], Step [300/373], Loss: 1307774.1250
+Epoch: 25 , val_loss: 101552387.53125
+parameters have been updated during epoch  25
+Train epoch 25: 168.302747 seconds
+Train epoch 26: 159.668572 seconds
+Train epoch 27: 159.706839 seconds
+Train epoch 28: 159.246446 seconds
+Train epoch 29: 159.039322 seconds
+Epoch [30/50], Step [0/373], Loss: 1675453.5000
+Epoch [30/50], Step [100/373], Loss: 1274193.1250
+Epoch [30/50], Step [200/373], Loss: 1456687.0000
+Epoch [30/50], Step [300/373], Loss: 1249096.5000
+Epoch: 30 , val_loss: 98880342.03125
+parameters have been updated during epoch  30
+Train epoch 30: 167.674311 seconds
+Train epoch 31: 159.220431 seconds
+Train epoch 32: 159.112101 seconds
+Train epoch 33: 159.082138 seconds
+Train epoch 34: 159.004101 seconds
+Epoch [35/50], Step [0/373], Loss: 1291909.3750
+Epoch [35/50], Step [100/373], Loss: 1056231.1250
+Epoch [35/50], Step [200/373], Loss: 1352658.3750
+Epoch [35/50], Step [300/373], Loss: 1460572.0000
+Epoch: 35 , val_loss: 96608540.3125
+parameters have been updated during epoch  35
+Train epoch 35: 167.578975 seconds
+Train epoch 36: 159.029286 seconds
+Train epoch 37: 159.105555 seconds
+Train epoch 38: 159.331165 seconds
+Train epoch 39: 159.628322 seconds
+Epoch [40/50], Step [0/373], Loss: 1294662.2500
+Epoch [40/50], Step [100/373], Loss: 1259981.0000
+Epoch [40/50], Step [200/373], Loss: 1371138.8750
+Epoch [40/50], Step [300/373], Loss: 1408168.1250
+Epoch: 40 , val_loss: 96408054.71875
+parameters have been updated during epoch  40
+Train epoch 40: 168.253927 seconds
+Train epoch 41: 159.681840 seconds
+Train epoch 42: 159.710543 seconds
+Train epoch 43: 159.670507 seconds
+Train epoch 44: 159.716221 seconds
+Epoch [45/50], Step [0/373], Loss: 1225737.5000
+Epoch [45/50], Step [100/373], Loss: 1157447.2500
+Epoch [45/50], Step [200/373], Loss: 1175820.5000
+Epoch [45/50], Step [300/373], Loss: 1306346.6250
+Epoch: 45 , val_loss: 97837213.625
+Train epoch 45: 168.322510 seconds
+Train epoch 46: 159.687051 seconds
+Train epoch 47: 159.501809 seconds
+Train epoch 48: 159.063679 seconds
+Train epoch 49: 184.556118 seconds
+Running time: 52.30167484283447 Seconds
+mae for new SandwichGNN: [14.347426 14.420789 14.607129 14.755132 14.889082 14.945546 15.023692
+ 15.082225 15.157835 15.247814 15.383763 15.424214]
+rmse for new SanwichGNN: [24.160986 24.239815 24.492744 24.719654 24.896088 24.966452 25.042173
+ 25.129084 25.295652 25.408566 25.60491  25.677671]
+======================================================================================================
+The mean of NEW MAE for all 1 times:  tensor([14.3474, 14.4208, 14.6071, 14.7551, 14.8891, 14.9455, 15.0237, 15.0822,
+        15.1578, 15.2478, 15.3838, 15.4242])
+The mean of NEW RMSE for all 1 times:  tensor([24.1610, 24.2398, 24.4927, 24.7197, 24.8961, 24.9665, 25.0422, 25.1291,
+        25.2957, 25.4086, 25.6049, 25.6777])
+The std' of NEW MAE for all 1 times:  tensor([nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+The std' of NEW RMSE for all 1 times:  tensor([nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan, nan])
+======================================================================================================
