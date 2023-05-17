@@ -28,7 +28,7 @@ class SandwichGNN(nn.Module):
         # self.x_embed = nn.Linear(2, d_model)
 
         # Encoder
-        self.encoder = Encoder(predefined_A=self.predefined_A)
+        self.encoder = Encoder(predefined_A=self.predefined_A, seq_len=72)
 
         # Decoder
         self.decoder = Decoder()
@@ -44,5 +44,6 @@ class SandwichGNN(nn.Module):
 
         encoder_outputs = self.encoder(x)
         predict_y = self.decoder(encoder_outputs)
+        predict_y = predict_y[:, :, :, 0]
 
         return predict_y

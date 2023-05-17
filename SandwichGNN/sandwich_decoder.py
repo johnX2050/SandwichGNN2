@@ -19,13 +19,14 @@ class DecoderLayer(nn.Module):
     def __init__(self, gcn_true=True, gcn_depth=2, num_nodes=0, device='cuda:0', predefined_A=None,
                  dropout=0.3,
                  dilation_exponential=1, conv_channels=32, residual_channels=32,
-                 skip_channels=64, end_channels=128, seq_length=72, in_dim=2, out_dim=12, layers=1, propalpha=0.05,
+                 skip_channels=64, end_channels=128, seq_length=72, in_dim=32, out_dim=12, layers=1, propalpha=0.05,
                  layer_norm_affline=True):
         super(DecoderLayer, self).__init__()
 
         self.gcn_true = gcn_true
         self.dropout = dropout
         self.predefined_A = predefined_A
+        self.num_nodes = num_nodes
         self.filter_convs = nn.ModuleList()
         self.gate_convs = nn.ModuleList()
         self.residual_convs = nn.ModuleList()
@@ -33,6 +34,8 @@ class DecoderLayer(nn.Module):
         self.gconv1 = nn.ModuleList()
         self.gconv2 = nn.ModuleList()
         self.norm = nn.ModuleList()
+
+        self.idx = torch.arange(self.num_nodes).to(device)
 
         self.seq_length = seq_length
         kernel_size = 7
@@ -78,38 +81,30 @@ class DecoderLayer(nn.Module):
                 new_dilation *= dilation_exponential
 
         self.layers = layers
-        self.end_conv_1 = nn.Conv2d(in_channels=skip_channels,
-                                    out_channels=end_channels,
-                                    kernel_size=(1, 1),
-                                    bias=True)
-        self.end_conv_2 = nn.Conv2d(in_channels=end_channels,
-                                    out_channels=out_dim,
-                                    kernel_size=(1, 1),
-                                    bias=True)
-        if self.seq_length > self.receptive_field:
-            self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.seq_length),
-                                   bias=True)
-            self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels,
-                                   kernel_size=(1, self.seq_length - self.receptive_field + 1), bias=True)
 
-        else:
-            self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels,
-                                   kernel_size=(1, self.receptive_field), bias=True)
-            self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, 1),
-                                   bias=True)
+        # if self.seq_length > self.receptive_field:
+        #     self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.seq_length),
+        #                            bias=True)
+        #     self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels,
+        #                            kernel_size=(1, self.seq_length - self.receptive_field + 1), bias=True)
+        #
+        # else:
+        #     self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels,
+        #                            kernel_size=(1, self.receptive_field), bias=True)
+        #     self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, 1),
+        #                            bias=True)
 
 
-
-    def forward(self, x, adp):
+    def forward(self, x, adp, idx=None):
 
         # there is T and S in one decoder layer
-        idx = x.shape[1]
-        seq_len = x.shape[2]
+        seq_len = x.shape[3]
 
         # padding the sequence if the seq length is not long enough
         if seq_len < self.receptive_field:
             x = nn.functional.pad(x,(self.receptive_field-seq_len,0,0,0))
 
+        # no skip connection
 
         for i in range(self.layers):
             residual = x
@@ -121,10 +116,6 @@ class DecoderLayer(nn.Module):
             gate = torch.sigmoid(gate)
             x = filter * gate
             x = F.dropout(x, self.dropout, training=self.training)
-
-            s = x
-            s = self.skip_convs[i](s)
-            skip = s + skip
 
             # S
             if self.gcn_true:
@@ -138,13 +129,7 @@ class DecoderLayer(nn.Module):
             else:
                 x = self.norm[i](x,idx)
 
-            x_out = x
-            skip = self.skipE(x) + skip
-            x = F.relu(skip)
-            x = F.relu(self.end_conv_1(x))
-            layer_pred = self.end_conv_2(x)
-
-        return x_out, layer_pred
+        return x
 
 
 
@@ -153,17 +138,40 @@ class Decoder(nn.Module):
     '''
     The decoder of Crossformer, making the final prediction by adding up predictions at each scale
     '''
-    def __init__(self, n_layers=3):
+    def __init__(self, n_layers=3, residual_channels=32, skip_channels=64,end_channels=32, out_dim=12):
         super(Decoder, self).__init__()
 
         self.n_layers = n_layers
         self.decoder_layers = nn.ModuleList()
 
-        for i in range(n_layers):
-            self.decoder_layers.append(DecoderLayer())
+        # declare 0 th decoder layer
+        # the sequence length is not fixed
+        self.decoder_layers.append(DecoderLayer(num_nodes=23, seq_length=1))
+
+        self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels,
+                               kernel_size=(1, 61), bias=True)
+
+        self.end_conv_1 = nn.Conv2d(in_channels=skip_channels,
+                                    out_channels=end_channels,
+                                    kernel_size=(1, 1),
+                                    bias=True)
+        self.end_conv_2 = nn.Conv2d(in_channels=end_channels,
+                                    out_channels=out_dim,
+                                    kernel_size=(1, 1),
+                                    bias=True)
+
+        # declare 1, 2... decoder layers
+        for i in range(1, n_layers):
+            if i == 1:
+                seq_length = 1 + 24
+                n_nodes = 69
+            elif i == 2:
+                seq_length = 25 - 6 + 48
+                n_nodes = 207
+            self.decoder_layers.append(DecoderLayer(num_nodes=n_nodes, seq_length=seq_length))
 
     def forward(self, encoder_outputs):
-        layers = self.decoder
+        layers = self.decoder_layers
 
 
         # reverse all encoder outputs
@@ -175,20 +183,22 @@ class Decoder(nn.Module):
         s.reverse()
 
         # the first decoder layer
-        x, layer_predict = layers(x[0], adj[0])
-        final_predict = layer_predict
-
-        # assign x to finer spatial scale
-        next_x = torch.bmm(s[0], x)
-
-        next_dec_in = torch.cat([x[1], next_x], dim=3)
+        x_out = layers[0](x[0], adj[0])
 
         for i in range(1, self.n_layers):
-            x, layer_predict = layers(next_dec_in, adj[i])
-            final_predict += layer_predict
+            next_x = torch.einsum("nm, bcmt->bcnt",[s[i], x_out])
+            next_dec_in = torch.cat([x[i], next_x], dim=3)
+            x_out = layers[i](next_dec_in, adj[i])
 
-            if i != self.n_layers-1:
-                next_x = torch.bmm(s[i], x)
-                next_dec_in = torch.cat([x[i+1],next_x])
+        # how to deal with x_out? (64, 32, 207, 61) -> (64, 12, 207, 1)
+        # end cov can make 32 -> 12
+        # Do I need skip connection for decoder? If needed, how does it work?
+        # How does crossformer deal with this？
+        # This version use one skip conv to make 61 -> 1
+        x = self.skipE(x_out)
+        x = F.relu(x)
+        x = F.relu(self.end_conv_1(x))
+        pred = self.end_conv_2(x)
 
-        return final_predict
+
+        return pred

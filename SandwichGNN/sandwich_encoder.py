@@ -119,10 +119,10 @@ class Encoderlayer(nn.Module):
                 x_out = self.norm[i](x,idx)
 
         ass = self.assign_matrix
-        ass = repeat(ass, 'n_nodes next_n_nodes -> b n_nodes next_n_nodes', b=batch_size)
-        ass = rearrange(ass, 'b n m->b m n')
+        # ass = repeat(ass, 'n_nodes next_n_nodes -> b n_nodes next_n_nodes', b=batch_size)
+        ass = rearrange(ass, 'n m->m n')
         # need to be corrected
-        next_x_in = torch.bmm(ass, x_out)
+        next_x_in = torch.einsum("bcnt, mn->bcmt", [x_out, ass])
 
 
         # get the assignment matrix and more coarsen nodes embeddings
@@ -139,11 +139,11 @@ class Encoder(nn.Module):
     """
     Description: The Encoder compose of encoder layers.
     Input: x
-    Output: encoder_layer_outputs, adp, s
+    Output: encoder_layer_outputs, adp, ss
     """
 
-    def __init__(self, n_nodes=207, n_layers=3, seq_len=None, in_dim=2, residual_channels=32,
-                s_factor=4, predefined_A=None
+    def __init__(self, seq_len, n_nodes=207, n_layers=3, in_dim=2, residual_channels=32,
+                s_factor=3, predefined_A=None
                  ):
         super(Encoder, self).__init__()
 
@@ -158,14 +158,15 @@ class Encoder(nn.Module):
                                     kernel_size=(1, 1))
 
         self.encoder_layers = nn.ModuleList([
-            Encoderlayer(num_nodes=207, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A)]
+            Encoderlayer(num_nodes=207, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A, seq_length=72)]
         )
 
         for i in range(1, n_layers):
             cur_n_nodes = int(n_nodes // math.pow(s_factor, i))
             next_n_nodes = int(cur_n_nodes // s_factor)
+            seq_length = self.seq_len - (24 * i)
             self.encoder_layers.append(
-                Encoderlayer(num_nodes=cur_n_nodes, next_n_nodes=next_n_nodes)
+                Encoderlayer(num_nodes=cur_n_nodes, next_n_nodes=next_n_nodes, seq_length=seq_length)
             )
 
     def forward(self, x):
@@ -186,7 +187,7 @@ class Encoder(nn.Module):
         enc_s.append(s)
 
 
-        for i in range(1, len(self.encode_blocks)):
+        for i in range(1, self.n_layers):
             enc_out, adp, s, next_enc_in = self.encoder_layers[i](next_enc_in)
 
             enc_outputs.append(enc_out)

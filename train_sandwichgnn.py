@@ -1,4 +1,6 @@
 import time
+
+import numpy as np
 import torch.nn as nn
 import torch.utils.data as Data
 import random
@@ -8,7 +10,7 @@ from SandwichGNN.dataset_meta_la import trainDataset_metr_la, valDataset_metr_la
 from util import *
 from einops import repeat
 import argparse
-
+import math
 
 def seed_torch(seed: int = 42) -> None:
     random.seed(seed)
@@ -24,7 +26,7 @@ parser.add_argument('--mode', type=str, default='full', help='')
 parser.add_argument('--encoder', type=str, default='self', help='')
 parser.add_argument('--w_init', type=str, default='rand', help='')
 parser.add_argument('--run_times', type=int, default=1, help='')
-parser.add_argument('--epoch', type=int, default=1, help='')
+parser.add_argument('--epoch', type=int, default=50, help='')
 parser.add_argument('--batch_size', type=int, default=64, help='')
 parser.add_argument('--w_rate', type=int, default=50, help='')
 parser.add_argument('--n_nodes', type=int, default=207, help='')
@@ -142,6 +144,7 @@ for times in range(args.run_times):
 
 
     with torch.no_grad():
+
         Model.load_state_dict(torch.load(args.encoder + '_para_' + args.mark + '.ckpt'))
 
         batch_predefined_A = repeat(predefined_A, 'n1 n2 -> b n1 n2', b=args.batch_size)
@@ -150,6 +153,8 @@ for times in range(args.run_times):
             data = [item.to(args.device, non_blocking=True) for item in data]
             x, y, loc = data
             outputs = Model(x)
+            outputs = outputs.transpose(1, 2)
+            y = y.transpose(1, 2)
             cal_loss(outputs, y)
 
         mae_loss = mae_loss / (len(test_dataset))
@@ -163,32 +168,50 @@ for times in range(args.run_times):
 
         mae_loss = mae_loss.cpu()
         rmse_loss = rmse_loss.cpu()
-        final_result = (mae_loss.sum() / 6).item()
+        # final_result = (mae_loss.sum() / 6).item()
 
         print('mae for new SandwichGNN:', np.array(mae_loss))
         print('rmse for new SanwichGNN:', np.sqrt(np.array(rmse_loss)))
 
-        mae_loss_tensor = mae_loss.unsqueeze(dim=0)
-        rmse_loss = torch.sqrt(rmse_loss)
-        rmse_loss_tensor = rmse_loss.unsqueeze(dim=0)
-        if times == 0:
-            all_loss_tensor_mae = mae_loss_tensor
-            all_loss_tensor_rmse = rmse_loss_tensor
-        else:
-            all_loss_tensor_mae = torch.cat([all_loss_tensor_mae, mae_loss_tensor], dim=0)
-            all_loss_tensor_rmse = torch.cat([all_loss_tensor_rmse, rmse_loss_tensor], dim=0)
+        mae_loss = np.array(mae_loss)
+        rmse_loss = np.sqrt(np.array(rmse_loss))
+
+        # print mae and rmse for 3h, 6h, 12h
+        mae_3h = np.mean(mae_loss[0:3])
+        rmse_3h = np.mean(rmse_loss[0:3])
+        mae_6h = np.mean(mae_loss[0:6])
+        rmse_6h = np.mean(rmse_loss[0:6])
+        mae_12h = np.mean(mae_loss)
+        rmse_12h = np.mean(rmse_loss)
+
+        print('3h mae: ', mae_3h)
+        print('3h rmse: ', rmse_3h)
+        print('6h mae: ', mae_6h)
+        print('6h rmse: ', rmse_6h)
+        print('12h mae: ', mae_12h)
+        print('12h rmse:', rmse_12h)
+
+        # mae_loss_tensor = mae_loss.unsqueeze(dim=0)
+        # rmse_loss = torch.sqrt(rmse_loss)
+        # rmse_loss_tensor = rmse_loss.unsqueeze(dim=0)
+        # if times == 0:
+        #     all_loss_tensor_mae = mae_loss_tensor
+        #     all_loss_tensor_rmse = rmse_loss_tensor
+        # else:
+        #     all_loss_tensor_mae = torch.cat([all_loss_tensor_mae, mae_loss_tensor], dim=0)
+        #     all_loss_tensor_rmse = torch.cat([all_loss_tensor_rmse, rmse_loss_tensor], dim=0)
 
 # print MAE and RMSE for all run times
-print("======================================================================================================")
-mean_mae = all_loss_tensor_mae.mean(dim=0)
-mean_rmse = all_loss_tensor_rmse.mean(dim=0)
-print("The mean of NEW MAE for all " + str(args.run_times) + " times: ", mean_mae)
-print("The mean of NEW RMSE for all " + str(args.run_times) + " times: ", mean_rmse)
-std_mae = all_loss_tensor_mae.std(dim=0)
-std_rmse = all_loss_tensor_rmse.std(dim=0)
-print("The std' of NEW MAE for all " + str(args.run_times) + " times: ", std_mae)
-print("The std' of NEW RMSE for all " + str(args.run_times) + " times: ", std_rmse)
-print("======================================================================================================")
+# print("======================================================================================================")
+# mean_mae = all_loss_tensor_mae.mean(dim=0)
+# mean_rmse = all_loss_tensor_rmse.mean(dim=0)
+# print("The mean of NEW MAE for all " + str(args.run_times) + " times: ", mean_mae)
+# print("The mean of NEW RMSE for all " + str(args.run_times) + " times: ", mean_rmse)
+# std_mae = all_loss_tensor_mae.std(dim=0)
+# std_rmse = all_loss_tensor_rmse.std(dim=0)
+# print("The std' of NEW MAE for all " + str(args.run_times) + " times: ", std_mae)
+# print("The std' of NEW RMSE for all " + str(args.run_times) + " times: ", std_rmse)
+# print("======================================================================================================")
 
         # for i, data in enumerate(Data.DataLoader(test_dataset, batch_size=1, shuffle=False, pin_memory=True)):
         #     data = [item.to(device, non_blocking=True) for item in data]
