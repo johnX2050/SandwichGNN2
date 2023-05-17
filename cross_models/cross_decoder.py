@@ -61,7 +61,7 @@ class Decoder(nn.Module):
             self.decode_layers.append(DecoderLayer(seg_len, d_model, n_heads, d_ff, dropout, \
                                                    out_seg_num, factor))
 
-    def forward(self, x, encoder_outputs):
+    def forward(self, x, cross):
         final_predict = None
         i = 0
 
