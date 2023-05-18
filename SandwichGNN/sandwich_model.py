@@ -42,8 +42,8 @@ class SandwichGNN(nn.Module):
         # x_embed = self.x_embed(x)
         # x_embed = rearrange(x_embed, 'b c n t -> b t n c')
 
-        encoder_outputs = self.encoder(x)
-        predict_y = self.decoder(encoder_outputs)
+        encoder_outputs, skip_ori = self.encoder(x)
+        predict_y = self.decoder(encoder_outputs, skip_ori)
         predict_y = predict_y[:, :, :, 0]
 
         return predict_y

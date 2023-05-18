@@ -13,7 +13,7 @@ from SandwichGNN.mtgnn_layer import *
 
 class Encoderlayer(nn.Module):
     def __init__(self, next_n_nodes, num_nodes=0, gcn_true=True, buildA_true=True, gcn_depth=2,  device='cuda:0', predefined_A=None,
-                 static_feat=None, dropout=0.3,
+                 static_feat=None, dropout=0.3, skip_channels=64,
                  subgraph_size=20, node_dim=40, dilation_exponential=1, conv_channels=32, residual_channels=32,
                  seq_length=72, in_dim=2, out_dim=12, layers=2, propalpha=0.05,
                  tanhalpha=3, layer_norm_affline=True):
@@ -27,6 +27,7 @@ class Encoderlayer(nn.Module):
         self.filter_convs = nn.ModuleList()
         self.gate_convs = nn.ModuleList()
         self.residual_convs = nn.ModuleList()
+        self.skip_convs = nn.ModuleList()
         self.gconv1 = nn.ModuleList()
         self.gconv2 = nn.ModuleList()
         self.norm = nn.ModuleList()
@@ -57,6 +58,15 @@ class Encoderlayer(nn.Module):
                                                     out_channels=residual_channels,
                                                     kernel_size=(1, 1)))
 
+                if self.seq_length>self.receptive_field:
+                    self.skip_convs.append(nn.Conv2d(in_channels=conv_channels,
+                                                    out_channels=skip_channels,
+                                                    kernel_size=(1, self.seq_length-rf_size_j+1)))
+                else:
+                    self.skip_convs.append(nn.Conv2d(in_channels=conv_channels,
+                                                    out_channels=skip_channels,
+                                                    kernel_size=(1, self.receptive_field-rf_size_j+1)))
+
                 if self.gcn_true:
                     self.gconv1.append(mixprop(conv_channels, residual_channels, gcn_depth, dropout, propalpha))
                     self.gconv2.append(mixprop(conv_channels, residual_channels, gcn_depth, dropout, propalpha))
@@ -68,6 +78,14 @@ class Encoderlayer(nn.Module):
 
                 new_dilation *= dilation_exponential
 
+        if self.seq_length > self.receptive_field:
+            self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.seq_length), bias=True)
+            self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, self.seq_length-self.receptive_field+1), bias=True)
+
+        else:
+            self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.receptive_field), bias=True)
+            self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, 1), bias=True)
+
         self.layers = layers
 
         self.idx = torch.arange(self.num_nodes).to(device)
@@ -76,13 +94,13 @@ class Encoderlayer(nn.Module):
         self.assign_matrix = Parameter(torch.randn(num_nodes, next_n_nodes).to(device, non_blocking=True), requires_grad=True)
 
 
-    def forward(self, x, idx=None):
+    def forward(self, x, skip, idx=None):
 
         batch_size = x.size(0)
         seq_len = x.size(3)
+        skip = skip
 
         # assert seq_len==self.seq_length, 'input sequence length not equal to preset sequence length'
-
         if seq_len < self.receptive_field:
             x = nn.functional.pad(x,(self.receptive_field-seq_len,0,0,0))
 
@@ -106,6 +124,10 @@ class Encoderlayer(nn.Module):
             x = filter * gate
             x = F.dropout(x, self.dropout, training=self.training)
 
+            s = x
+            s = self.skip_convs[i](s)
+            skip = s + skip
+
             # S
             if self.gcn_true:
                 x = self.gconv1[i](x, adp)+self.gconv2[i](x, adp.transpose(1,0))
@@ -118,19 +140,22 @@ class Encoderlayer(nn.Module):
             else:
                 x_out = self.norm[i](x,idx)
 
+
         ass = self.assign_matrix
         # ass = repeat(ass, 'n_nodes next_n_nodes -> b n_nodes next_n_nodes', b=batch_size)
         ass = rearrange(ass, 'n m->m n')
         # need to be corrected
         next_x_in = torch.einsum("bcnt, mn->bcmt", [x_out, ass])
 
+        skip = self.skipE(x_out) + skip
+        x_out = F.relu(skip)
 
         # get the assignment matrix and more coarsen nodes embeddings
         # this section can be replaced by randomly initializing s
         # assignment_matrix = self.gnn1_pool(x, adp)
         # next_x, next_adp, _, _ = dense_diff_pool(x, adp, assignment_matrix)
 
-        return x_out, adp, self.assign_matrix, next_x_in
+        return x_out, adp, self.assign_matrix, next_x_in, skip
 
 
 
@@ -139,11 +164,13 @@ class Encoder(nn.Module):
     """
     Description: The Encoder compose of encoder layers.
     Input: x
-    Output: encoder_layer_outputs, adp, ss
+    Output: encoder_layer_outputs, adp, s
     """
 
     def __init__(self, seq_len, n_nodes=207, n_layers=3, in_dim=2, residual_channels=32,
-                s_factor=3, predefined_A=None
+                 skip_channels=64,
+                s_factor=3, predefined_A=None,
+                 dropout=0.3
                  ):
         super(Encoder, self).__init__()
 
@@ -152,10 +179,14 @@ class Encoder(nn.Module):
         self.seq_len = seq_len
         self.s_factor = s_factor
         self.predefined_A = predefined_A
+        self.dropout = dropout
 
         self.start_conv = nn.Conv2d(in_channels=in_dim,
                                     out_channels=residual_channels,
                                     kernel_size=(1, 1))
+        self.skip0 = nn.Conv2d(in_channels=residual_channels,
+                               out_channels=skip_channels,
+                               kernel_size=(1, 72))
 
         self.encoder_layers = nn.ModuleList([
             Encoderlayer(num_nodes=207, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A, seq_length=72)]
@@ -177,18 +208,28 @@ class Encoder(nn.Module):
 
 
         x = self.start_conv(x)
+        skip = self.skip0(F.dropout(x, self.dropout, training=self.training))
 
         # encoder layer 1
-        enc_out, adp, s, next_enc_in = self.encoder_layers[0](x)
+        enc_out, adp, s, next_enc_in, skip = self.encoder_layers[0](x, skip)
+        # transpose s
+        s = rearrange(s, 'n m->m n')
+        # get next skip
+        next_skip = torch.einsum("bcnt, mn -> bcmt", [skip, s])
+        # get original skip
+        skip_ori = skip
 
         # append encoder layer 1 outputs: x, adp and s
         enc_outputs.append(enc_out)
         enc_adp.append(adp)
         enc_s.append(s)
 
-
         for i in range(1, self.n_layers):
-            enc_out, adp, s, next_enc_in = self.encoder_layers[i](next_enc_in)
+            enc_out, adp, s, next_enc_in, skip = self.encoder_layers[i](next_enc_in, next_skip)
+            # transpose s
+            s = rearrange(s, 'n m->m n')
+            # get next skip
+            next_skip = torch.einsum("bcnt, mn -> bcmt", [skip, s])
 
             enc_outputs.append(enc_out)
             enc_adp.append(adp)
@@ -198,4 +239,4 @@ class Encoder(nn.Module):
         encoder_outputs.append(enc_adp)
         encoder_outputs.append(enc_s)
 
-        return encoder_outputs
+        return encoder_outputs, skip_ori
