@@ -5,9 +5,8 @@ from einops import rearrange, repeat
 
 from SandwichGNN.sandwich_encoder import Encoder
 from SandwichGNN.sandwich_decoder import Decoder
-from cross_models.attn import FullAttention, AttentionLayer, TwoStageAttentionLayer
+# from cross_models.attn import FullAttention, AttentionLayer, TwoStageAttentionLayer
 from SandwichGNN.mtgnn_layer import *
-from einops import rearrange
 
 from math import ceil
 
@@ -33,17 +32,17 @@ class SandwichGNN(nn.Module):
         # Decoder
         self.decoder = Decoder()
 
-    def forward(self, x):
+    def forward(self, x, idx=None):
 
-        seq_len = x.shape[3]
-        assert seq_len == self.seq_len, 'input sequence length not equal to preset sequence length'
+        # seq_len = x.shape[3]
+        # assert seq_len == self.seq_len, 'input sequence length not equal to preset sequence length'
 
         # x = rearrange(x, 'b c n t -> b t n c')
         # x_embed = self.x_embed(x)
         # x_embed = rearrange(x_embed, 'b c n t -> b t n c')
 
-        encoder_outputs, skip_ori = self.encoder(x)
+        encoder_outputs, skip_ori = self.encoder(x, idx)
         predict_y = self.decoder(encoder_outputs, skip_ori)
-        predict_y = predict_y[:, :, :, 0]
+        # predict_y = predict_y[:, :, :, 0]
 
         return predict_y

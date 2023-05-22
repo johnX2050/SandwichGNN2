@@ -4,8 +4,9 @@ import numpy as np
 import argparse
 import time
 from util import *
-from trainer import Trainer
-from net import gtnet
+from MTGNN.trainer import Trainer
+from MTGNN.net import gtnet
+from SandwichGNN.sandwich_model import SandwichGNN
 
 def str_to_bool(value):
     if isinstance(value, bool):
@@ -20,9 +21,9 @@ def str_to_bool(value):
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--device',type=str,default='cuda:0',help='')
-parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metrla/7212',help='data path')
+parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metr_la/7212',help='data path')
 
-parser.add_argument('--adj_data', type=str,default='data/sensor_graph/adj_mx.pkl',help='adj data path')
+parser.add_argument('--adj_data', type=str,default='data/adj_mx.pkl',help='adj data path')
 parser.add_argument('--gcn_true', type=str_to_bool, default=True, help='whether to add graph convolution layer')
 parser.add_argument('--buildA_true', type=str_to_bool, default=True,help='whether to construct adaptive adjacency matrix')
 parser.add_argument('--load_static_feature', type=str_to_bool, default=False,help='whether to load static feature')
@@ -37,8 +38,8 @@ parser.add_argument('--dilation_exponential',type=int,default=1,help='dilation e
 
 parser.add_argument('--conv_channels',type=int,default=32,help='convolution channels')
 parser.add_argument('--residual_channels',type=int,default=32,help='residual channels')
-parser.add_argument('--skip_channels',type=int,default=32,help='skip channels')
-parser.add_argument('--end_channels',type=int,default=23,help='end channels')
+parser.add_argument('--skip_channels',type=int,default=64,help='skip channels')
+parser.add_argument('--end_channels',type=int,default=128,help='end channels')
 
 
 parser.add_argument('--in_dim',type=int,default=2,help='inputs dimension')
@@ -90,18 +91,20 @@ def main(runid):
     # else:
     #     static_feat = None
 
-    model = gtnet(args.gcn_true, args.buildA_true, args.gcn_depth, args.num_nodes,
-                  device, predefined_A=predefined_A,
-                  dropout=args.dropout, subgraph_size=args.subgraph_size,
-                  node_dim=args.node_dim,
-                  dilation_exponential=args.dilation_exponential,
-                  conv_channels=args.conv_channels, residual_channels=args.residual_channels,
-                  skip_channels=args.skip_channels, end_channels= args.end_channels,
-                  seq_length=args.seq_in_len, in_dim=args.in_dim, out_dim=args.seq_out_len,
-                  layers=args.layers, propalpha=args.propalpha, tanhalpha=args.tanhalpha, layer_norm_affline=True)
+    # model = gtnet(args.gcn_true, args.buildA_true, args.gcn_depth, args.num_nodes,
+    #               device, predefined_A=predefined_A,
+    #               dropout=args.dropout, subgraph_size=args.subgraph_size,
+    #               node_dim=args.node_dim,
+    #               dilation_exponential=args.dilation_exponential,
+    #               conv_channels=args.conv_channels, residual_channels=args.residual_channels,
+    #               skip_channels=args.skip_channels, end_channels= args.end_channels,
+    #               seq_length=args.seq_in_len, in_dim=args.in_dim, out_dim=args.seq_out_len,
+    #               layers=args.layers, propalpha=args.propalpha, tanhalpha=args.tanhalpha, layer_norm_affline=True)
+    model = SandwichGNN(predefined_A=predefined_A
+                        ).to(args.device)
 
     print(args)
-    print('The recpetive field size is', model.receptive_field)
+    # print('The recpetive field size is', model.receptive_field)
     nParams = sum([p.nelement() for p in model.parameters()])
     print('Number of model parameters is', nParams)
 

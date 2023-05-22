@@ -4,18 +4,18 @@ import torch.nn as nn
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch.nn.parameter import Parameter
 from einops import rearrange, repeat
-from SandwichGNN.attention import FullAttention, AttentionLayer, PositionwiseFeedForward
+# from SandwichGNN.attention import FullAttention, AttentionLayer, PositionwiseFeedForward
 from SandwichGNN.t_components import RegularMask, Bottleneck_Construct, refer_points, \
     get_mask, PositionwiseFeedForward, MLP
 from SandwichGNN.s_components import GNN
-from torch_geometric.nn import DenseGCNConv, dense_diff_pool
+# from torch_geometric.nn import DenseGCNConv, dense_diff_pool
 from SandwichGNN.mtgnn_layer import *
 
 class Encoderlayer(nn.Module):
     def __init__(self, next_n_nodes, num_nodes=0, gcn_true=True, buildA_true=True, gcn_depth=2,  device='cuda:0', predefined_A=None,
                  static_feat=None, dropout=0.3, skip_channels=64,
                  subgraph_size=20, node_dim=40, dilation_exponential=1, conv_channels=32, residual_channels=32,
-                 seq_length=72, in_dim=2, out_dim=12, layers=2, propalpha=0.05,
+                 seq_length=72, in_dim=2, out_dim=12, layers=3, propalpha=0.05,
                  tanhalpha=3, layer_norm_affline=True):
         super(Encoderlayer, self).__init__()
         self.next_n_nodes = next_n_nodes
@@ -34,7 +34,7 @@ class Encoderlayer(nn.Module):
         self.gc = graph_constructor(num_nodes, subgraph_size, node_dim, device, alpha=tanhalpha, static_feat=static_feat)
 
         self.seq_length = seq_length
-        kernel_size = 13
+        kernel_size = 7
         if dilation_exponential>1:
             self.receptive_field = int(1+(kernel_size-1)*(dilation_exponential**layers-1)/(dilation_exponential-1))
         else:
@@ -52,8 +52,8 @@ class Encoderlayer(nn.Module):
                 else:
                     rf_size_j = rf_size_i+j*(kernel_size-1)
 
-                self.filter_convs.append(dilated_inception_long_seq(residual_channels, conv_channels, dilation_factor=new_dilation))
-                self.gate_convs.append(dilated_inception_long_seq(residual_channels, conv_channels, dilation_factor=new_dilation))
+                self.filter_convs.append(dilated_inception(residual_channels, conv_channels, dilation_factor=new_dilation))
+                self.gate_convs.append(dilated_inception(residual_channels, conv_channels, dilation_factor=new_dilation))
                 self.residual_convs.append(nn.Conv2d(in_channels=conv_channels,
                                                     out_channels=residual_channels,
                                                     kernel_size=(1, 1)))
@@ -195,12 +195,12 @@ class Encoder(nn.Module):
         for i in range(1, n_layers):
             cur_n_nodes = int(n_nodes // math.pow(s_factor, i))
             next_n_nodes = int(cur_n_nodes // s_factor)
-            seq_length = self.seq_len - (24 * i)
+            seq_length = self.seq_len - (18 * i)
             self.encoder_layers.append(
                 Encoderlayer(num_nodes=cur_n_nodes, next_n_nodes=next_n_nodes, seq_length=seq_length)
             )
 
-    def forward(self, x):
+    def forward(self, x, idx=None):
         enc_outputs = []
         enc_adp = []
         enc_s = []
@@ -211,7 +211,7 @@ class Encoder(nn.Module):
         skip = self.skip0(F.dropout(x, self.dropout, training=self.training))
 
         # encoder layer 1
-        enc_out, adp, s, next_enc_in, skip = self.encoder_layers[0](x, skip)
+        enc_out, adp, s, next_enc_in, skip = self.encoder_layers[0](x, skip, idx)
         # transpose s
         s = rearrange(s, 'n m->m n')
         # get next skip

@@ -12,7 +12,7 @@ from SandwichGNN.t_components import RegularMask, Bottleneck_Construct, refer_po
 from SandwichGNN.s_components import GNN
 from SandwichGNN.mtgnn_layer import *
 from torch.nn.utils import weight_norm
-from torch_geometric.nn import GCNConv, norm
+# from torch_geometric.nn import GCNConv, norm
 from math import ceil
 
 class DecoderLayer(nn.Module):
@@ -140,7 +140,7 @@ class Decoder(nn.Module):
     '''
     The decoder of Crossformer, making the final prediction by adding up predictions at each scale
     '''
-    def __init__(self, n_layers=3, residual_channels=32, skip_channels=64,end_channels=32, out_dim=12):
+    def __init__(self, n_layers=3, residual_channels=32, skip_channels=64,end_channels=128, out_dim=12):
         super(Decoder, self).__init__()
 
         self.n_layers = n_layers
