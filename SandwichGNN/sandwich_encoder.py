@@ -4,21 +4,23 @@ import torch.nn as nn
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch.nn.parameter import Parameter
 from einops import rearrange, repeat
-# from SandwichGNN.attention import FullAttention, AttentionLayer, PositionwiseFeedForward
+from SandwichGNN.attention import FullAttention, AttentionLayer, PositionwiseFeedForward
 from SandwichGNN.t_components import RegularMask, Bottleneck_Construct, refer_points, \
     get_mask, PositionwiseFeedForward, MLP
 from SandwichGNN.s_components import GNN
-# from torch_geometric.nn import DenseGCNConv, dense_diff_pool
+from torch_geometric.nn import DenseGCNConv, dense_diff_pool
 from SandwichGNN.mtgnn_layer import *
 
 class Encoderlayer(nn.Module):
-    def __init__(self, next_n_nodes, num_nodes=0, gcn_true=True, buildA_true=True, gcn_depth=2,  device='cuda:0', predefined_A=None,
+    def __init__(self, next_n_nodes, layer_idx, num_nodes=0, gcn_true=True, buildA_true=True, gcn_depth=2,  device='cuda:0', predefined_A=None,
                  static_feat=None, dropout=0.3, skip_channels=64,
                  subgraph_size=20, node_dim=40, dilation_exponential=1, conv_channels=32, residual_channels=32,
                  seq_length=72, in_dim=2, out_dim=12, layers=3, propalpha=0.05,
                  tanhalpha=3, layer_norm_affline=True):
         super(Encoderlayer, self).__init__()
         self.next_n_nodes = next_n_nodes
+        self.layer_idx = layer_idx
+        self.n_layers = layers
         self.gcn_true = gcn_true
         self.buildA_true = buildA_true
         self.num_nodes = num_nodes
@@ -35,6 +37,7 @@ class Encoderlayer(nn.Module):
 
         self.seq_length = seq_length
         kernel_size = 7
+        self.kernel_size_ = kernel_size
         if dilation_exponential>1:
             self.receptive_field = int(1+(kernel_size-1)*(dilation_exponential**layers-1)/(dilation_exponential-1))
         else:
@@ -81,10 +84,16 @@ class Encoderlayer(nn.Module):
         if self.seq_length > self.receptive_field:
             self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.seq_length), bias=True)
             self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, self.seq_length-self.receptive_field+1), bias=True)
+            # GNN pool follow Diffpool
+            seq_length_ = self.seq_length-self.receptive_field+1
+            self.gnn_pool = GNN(residual_channels * seq_length_, residual_channels * seq_length_, next_n_nodes)
 
         else:
             self.skip0 = nn.Conv2d(in_channels=in_dim, out_channels=skip_channels, kernel_size=(1, self.receptive_field), bias=True)
             self.skipE = nn.Conv2d(in_channels=residual_channels, out_channels=skip_channels, kernel_size=(1, 1), bias=True)
+            # GNN pool follow Diffpool
+            seq_length_ = 1
+            self.gnn_pool = GNN(residual_channels * seq_length_, residual_channels * seq_length_, next_n_nodes)
 
         self.layers = layers
 
@@ -93,11 +102,17 @@ class Encoderlayer(nn.Module):
         # self.gnn1_pool = GNN(residual_channels, residual_channels, self.next_n_nodes)
         self.assign_matrix = Parameter(torch.randn(num_nodes, next_n_nodes).to(device, non_blocking=True), requires_grad=True)
 
+        if self.layer_idx == 1:
+            self.projMLP = Seq(Lin(180, 54), ReLU(inplace=True))
+        elif self.layer_idx == 2:
+            self.projMLP = Seq(Lin(126, 36), ReLU(inplace=True))
+
+
 
     def forward(self, x, skip, idx=None):
 
-        batch_size = x.size(0)
         seq_len = x.size(3)
+        next_x_seq_len = seq_len - self.n_layers * self.kernel_size_
         skip = skip
 
         # assert seq_len==self.seq_length, 'input sequence length not equal to preset sequence length'
@@ -112,6 +127,8 @@ class Encoderlayer(nn.Module):
                     adp = self.gc(idx)
             else:
                 adp = self.predefined_A
+
+        all_x = []
 
         for i in range(self.layers):
             residual = x
@@ -140,22 +157,34 @@ class Encoderlayer(nn.Module):
             else:
                 x_out = self.norm[i](x,idx)
 
+            # append x to all_x
+            all_x.append(x_out)
 
-        ass = self.assign_matrix
-        # ass = repeat(ass, 'n_nodes next_n_nodes -> b n_nodes next_n_nodes', b=batch_size)
-        ass = rearrange(ass, 'n m->m n')
-        # need to be corrected
-        next_x_in = torch.einsum("bcnt, mn->bcmt", [x_out, ass])
+        all_x_tensor = torch.cat(all_x, dim=3)
+        x_out = self.projMLP(all_x_tensor)
+
+        # Get next x, follow GAGNN
+        # ass = self.assign_matrix
+        # # ass = repeat(ass, 'n_nodes next_n_nodes -> b n_nodes next_n_nodes', b=batch_size)
+        # ass = rearrange(ass, 'n m->m n')
+        # # need to be corrected
+        # next_x_in = torch.einsum("bcnt, mn->bcmt", [x_out, ass])
+
+
+        # Get next x and s, follow DiffPool
+        d_model_ = x_out.size(1)
+        seq_len_ = x_out.size(3)
+
+        x_out = rearrange(x_out, 'b c n t -> b n (c t)')
+        s = self.gnn_pool(x_out, adp)
+        next_x, next_adj, _, _ = dense_diff_pool(x_out, adp, s)
+        x_out = rearrange(x_out, 'b n (c t) -> b c n t', c=d_model_, t=seq_len_)
+        next_x = rearrange(next_x, 'b n (c t) -> b c n t', t=seq_len_)
 
         skip = self.skipE(x_out) + skip
         x_out = F.relu(skip)
 
-        # get the assignment matrix and more coarsen nodes embeddings
-        # this section can be replaced by randomly initializing s
-        # assignment_matrix = self.gnn1_pool(x, adp)
-        # next_x, next_adp, _, _ = dense_diff_pool(x, adp, assignment_matrix)
-
-        return x_out, adp, self.assign_matrix, next_x_in, skip
+        return x_out, adp, s, next_x, skip
 
 
 
@@ -167,7 +196,7 @@ class Encoder(nn.Module):
     Output: encoder_layer_outputs, adp, s
     """
 
-    def __init__(self, seq_len, n_nodes=207, n_layers=3, in_dim=2, residual_channels=32,
+    def __init__(self, seq_len, n_nodes=207, n_layers=2, in_dim=2, residual_channels=32,
                  skip_channels=64,
                 s_factor=3, predefined_A=None,
                  dropout=0.3
@@ -189,7 +218,7 @@ class Encoder(nn.Module):
                                kernel_size=(1, 72))
 
         self.encoder_layers = nn.ModuleList([
-            Encoderlayer(num_nodes=207, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A, seq_length=72)]
+            Encoderlayer(num_nodes=207, layer_idx=1, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A, seq_length=72)]
         )
 
         for i in range(1, n_layers):
@@ -197,7 +226,7 @@ class Encoder(nn.Module):
             next_n_nodes = int(cur_n_nodes // s_factor)
             seq_length = self.seq_len - (18 * i)
             self.encoder_layers.append(
-                Encoderlayer(num_nodes=cur_n_nodes, next_n_nodes=next_n_nodes, seq_length=seq_length)
+                Encoderlayer(num_nodes=cur_n_nodes, layer_idx=i+1, next_n_nodes=next_n_nodes, seq_length=seq_length)
             )
 
     def forward(self, x, idx=None):
@@ -206,16 +235,15 @@ class Encoder(nn.Module):
         enc_s = []
         encoder_outputs = []
 
-
         x = self.start_conv(x)
         skip = self.skip0(F.dropout(x, self.dropout, training=self.training))
 
         # encoder layer 1
         enc_out, adp, s, next_enc_in, skip = self.encoder_layers[0](x, skip, idx)
         # transpose s
-        s = rearrange(s, 'n m->m n')
+        s = rearrange(s, 'b n m->b m n')
         # get next skip
-        next_skip = torch.einsum("bcnt, mn -> bcmt", [skip, s])
+        next_skip = torch.einsum("bcnt, bmn -> bcmt", [skip, s])
         # get original skip
         skip_ori = skip
 
@@ -227,9 +255,9 @@ class Encoder(nn.Module):
         for i in range(1, self.n_layers):
             enc_out, adp, s, next_enc_in, skip = self.encoder_layers[i](next_enc_in, next_skip)
             # transpose s
-            s = rearrange(s, 'n m->m n')
+            s = rearrange(s, 'b n m-> b m n')
             # get next skip
-            next_skip = torch.einsum("bcnt, mn -> bcmt", [skip, s])
+            next_skip = torch.einsum("bcnt, bmn -> bcmt", [skip, s])
 
             enc_outputs.append(enc_out)
             enc_adp.append(adp)
