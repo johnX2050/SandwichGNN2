@@ -107,9 +107,11 @@ class Encoderlayer(nn.Module):
         elif self.layer_idx == 2:
             self.projMLP = Seq(Lin(126, 36), ReLU(inplace=True))
 
+        self.adp_mlp = Seq(Lin(32, 1), ReLU(inplace=True))
 
 
-    def forward(self, x, skip, idx=None):
+
+    def forward(self, x, skip, adp=None, idx=None):
 
         seq_len = x.size(3)
         next_x_seq_len = seq_len - self.n_layers * self.kernel_size_
@@ -119,14 +121,15 @@ class Encoderlayer(nn.Module):
         if seq_len < self.receptive_field:
             x = nn.functional.pad(x,(self.receptive_field-seq_len,0,0,0))
 
-        if self.gcn_true:
-            if self.buildA_true:
-                if idx is None:
-                    adp = self.gc(self.idx)
+        if adp is None:
+            if self.gcn_true:
+                if self.buildA_true:
+                    if idx is None:
+                        adp = self.gc(self.idx)
+                    else:
+                        adp = self.gc(idx)
                 else:
-                    adp = self.gc(idx)
-            else:
-                adp = self.predefined_A
+                    adp = self.predefined_A
 
         all_x = []
 
@@ -178,13 +181,18 @@ class Encoderlayer(nn.Module):
         x_out = rearrange(x_out, 'b c n t -> b n (c t)')
         s = self.gnn_pool(x_out, adp)
         next_x, next_adj, _, _ = dense_diff_pool(x_out, adp, s)
+        # change batch adj to one adj
+        next_adj = rearrange(next_adj, 'b n n1 -> n n1 b')
+        next_adj = self.adp_mlp(next_adj)
+        next_adj = rearrange(next_adj, 'n n1 b -> n (n1 b)')
+
         x_out = rearrange(x_out, 'b n (c t) -> b c n t', c=d_model_, t=seq_len_)
         next_x = rearrange(next_x, 'b n (c t) -> b c n t', t=seq_len_)
 
         skip = self.skipE(x_out) + skip
         x_out = F.relu(skip)
 
-        return x_out, adp, s, next_x, skip
+        return x_out, adp, s, next_x, next_adj, skip
 
 
 
@@ -239,7 +247,7 @@ class Encoder(nn.Module):
         skip = self.skip0(F.dropout(x, self.dropout, training=self.training))
 
         # encoder layer 1
-        enc_out, adp, s, next_enc_in, skip = self.encoder_layers[0](x, skip, idx)
+        enc_out, adp, s, next_enc_in, next_adj, skip = self.encoder_layers[0](x, skip, None, idx)
         # transpose s
         s = rearrange(s, 'b n m->b m n')
         # get next skip
@@ -253,7 +261,7 @@ class Encoder(nn.Module):
         enc_s.append(s)
 
         for i in range(1, self.n_layers):
-            enc_out, adp, s, next_enc_in, skip = self.encoder_layers[i](next_enc_in, next_skip)
+            enc_out, adp, s, next_enc_in, next_adj, skip = self.encoder_layers[i](next_enc_in, next_skip, next_adj, None)
             # transpose s
             s = rearrange(s, 'b n m-> b m n')
             # get next skip
