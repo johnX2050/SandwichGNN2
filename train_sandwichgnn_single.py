@@ -1,7 +1,5 @@
+
 import torch
-import torch.utils.data as Data
-from torch.utils.data.distributed import DistributedSampler
-import torch.distributed
 import numpy as np
 import argparse
 import time
@@ -9,7 +7,6 @@ from util import *
 from MTGNN.trainer import Trainer
 from MTGNN.net import gtnet
 from SandwichGNN.sandwich_model import SandwichGNN
-from SandwichGNN.dataset_meta_la import testDataset_metr_la, valDataset_metr_la, trainDataset_metr_la, get_scaler
 
 def str_to_bool(value):
     if isinstance(value, bool):
@@ -50,14 +47,14 @@ parser.add_argument('--seq_in_len',type=int,default=72,help='input sequence leng
 parser.add_argument('--seq_out_len',type=int,default=12,help='output sequence length')
 
 parser.add_argument('--layers',type=int,default=3,help='number of layers')
-parser.add_argument('--batch_size',type=int,default=32,help='batch size')
+parser.add_argument('--batch_size',type=int,default=16,help='batch size')
 parser.add_argument('--learning_rate',type=float,default=0.001,help='learning rate')
 parser.add_argument('--weight_decay',type=float,default=0.0001,help='weight decay rate')
 parser.add_argument('--clip',type=int,default=5,help='clip')
 parser.add_argument('--step_size1',type=int,default=2500,help='step_size')
 parser.add_argument('--step_size2',type=int,default=100,help='step_size')
 
-parser.add_argument('--epochs',type=int,default=50, help='')
+parser.add_argument('--epochs',type=int,default=1, help='')
 parser.add_argument('--print_every',type=int,default=50,help='')
 parser.add_argument('--seed',type=int,default=101,help='random seed')
 parser.add_argument('--save',type=str,default='./save/',help='save path')
@@ -69,43 +66,11 @@ parser.add_argument('--tanhalpha',type=float,default=3,help='adj alpha')
 parser.add_argument('--num_split',type=int,default=1,help='number of splits for graphs')
 
 parser.add_argument('--runs',type=int,default=1,help='number of runs')
-parser.add_argument('--local-rank', default=0, type=int)
+
 
 args = parser.parse_args()
 torch.set_num_threads(3)
 
-local_rank = args.local_rank
-
-torch.cuda.set_device(local_rank) # 设定cuda的默认GPU，每个rank不同
-device = torch.device('cuda', args.local_rank)
-torch.distributed.init_process_group(backend='nccl')
-
-# dataset
-train_dataset = trainDataset_metr_la()
-val_dataset = valDataset_metr_la()
-test_dataset = testDataset_metr_la()
-print(len(train_dataset) + len(val_dataset) + len(test_dataset))
-
-train_sampler = DistributedSampler(train_dataset)
-train_loader = torch.utils.data.DataLoader(train_dataset, sampler=train_sampler,
-                                           batch_size=int(args.batch_size/4))
-
-# val_sampler = DistributedSampler(val_dataset)
-# val_loader = torch.utils.data.DataLoader(val_dataset, sampler=val_sampler,
-#                                          batch_size=int(args.batch_size/4))
-#
-# test_sampler = DistributedSampler(test_dataset)
-# test_loader = torch.utils.data.DataLoader(test_dataset, sampler=test_sampler,
-#                                          batch_size=int(args.batch_size/4))
-
-# train_loader = Data.DataLoader(train_dataset, batch_size=args.batch_size,
-#                                shuffle=True, num_workers=0, pin_memory=True)
-val_loader = Data.DataLoader(val_dataset, batch_size=args.batch_size,
-                             shuffle=False, num_workers=0, pin_memory=True)
-test_loader = Data.DataLoader(test_dataset, batch_size=args.batch_size,
-                              shuffle=False, num_workers=0, pin_memory=True)
-
-scaler = get_scaler()
 
 def main(runid):
     # torch.manual_seed(args.seed)
@@ -113,8 +78,9 @@ def main(runid):
     # torch.backends.cudnn.benchmark = False
     # np.random.seed(args.seed)
     #load data
-    # dataloader = load_dataset(args.data, args.batch_size, args.batch_size, args.batch_size)
-    # scaler = dataloader['scaler']
+    device = torch.device(args.device)
+    dataloader = load_dataset(args.data, args.batch_size, args.batch_size, args.batch_size)
+    scaler = dataloader['scaler']
 
     predefined_A = load_adj(args.adj_data)
     predefined_A = torch.tensor(predefined_A)-torch.eye(args.num_nodes)
@@ -125,11 +91,17 @@ def main(runid):
     # else:
     #     static_feat = None
 
-
+    # model = gtnet(args.gcn_true, args.buildA_true, args.gcn_depth, args.num_nodes,
+    #               device, predefined_A=predefined_A,
+    #               dropout=args.dropout, subgraph_size=args.subgraph_size,
+    #               node_dim=args.node_dim,
+    #               dilation_exponential=args.dilation_exponential,
+    #               conv_channels=args.conv_channels, residual_channels=args.residual_channels,
+    #               skip_channels=args.skip_channels, end_channels= args.end_channels,
+    #               seq_length=args.seq_in_len, in_dim=args.in_dim, out_dim=args.seq_out_len,
+    #               layers=args.layers, propalpha=args.propalpha, tanhalpha=args.tanhalpha, layer_norm_affline=True)
     model = SandwichGNN(predefined_A=predefined_A
-                        ).to(device)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
-                                                      output_device=args.local_rank, find_unused_parameters=True)
+                        ).to(args.device)
 
     print(args)
     # print('The recpetive field size is', model.receptive_field)
@@ -148,13 +120,13 @@ def main(runid):
         train_mape = []
         train_rmse = []
         t1 = time.time()
-        # dataloader['train_loader'].shuffle()
-        for iter, data in enumerate(train_loader):
-            data = [item.to(device, non_blocking=True) for item in data]
-            trainx, trainy = data
-            trainx = trainx.transpose(1, 3)
+        dataloader['train_loader'].shuffle()
+        for iter, (x, y) in enumerate(dataloader['train_loader'].get_iterator()):
+            trainx = torch.Tensor(x).to(device)
+            trainx= trainx.transpose(1, 3)
+            trainy = torch.Tensor(y).to(device)
             trainy = trainy.transpose(1, 3)
-            if iter % args.step_size2 == 0:
+            if iter%args.step_size2==0:
                 perm = np.random.permutation(range(args.num_nodes))
             num_sub = int(args.num_nodes/args.num_split)
             for j in range(args.num_split):
@@ -180,11 +152,11 @@ def main(runid):
         valid_rmse = []
 
         s1 = time.time()
-        for iter, data_val in enumerate(val_loader):
-            data_val = [item.to(device, non_blocking=True) for item in data_val]
-            x_val, y_val = data_val
-            testx = x_val.transpose(1, 3)
-            testy = y_val.transpose(1, 3)
+        for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
+            testx = torch.Tensor(x).to(device)
+            testx = testx.transpose(1, 3)
+            testy = torch.Tensor(y).to(device)
+            testy = testy.transpose(1, 3)
             metrics = engine.eval(testx, testy[:,0,:,:])
             valid_loss.append(metrics[0])
             valid_mape.append(metrics[1])
@@ -206,77 +178,61 @@ def main(runid):
         print(log.format(i, mtrain_loss, mtrain_mape, mtrain_rmse, mvalid_loss, mvalid_mape, mvalid_rmse, (t2 - t1)),flush=True)
 
         if mvalid_loss<minl:
+            torch.save(engine.model.state_dict(), args.save + "exp" + str(args.expid) + "_" + str(runid) +".pth")
             minl = mvalid_loss
-            if local_rank == 0:
-                torch.save(engine.model.state_dict(), args.save + "exp" + str(args.expid) + "_" + str(runid) +".pth")
-
 
     print("Average Training Time: {:.4f} secs/epoch".format(np.mean(train_time)))
     print("Average Inference Time: {:.4f} secs".format(np.mean(val_time)))
 
 
     bestid = np.argmin(his_loss)
-
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
-    engine.model.load_state_dict(torch.load(args.save + "exp" + str(args.expid) + "_" + str(runid) +".pth",
-                                            map_location=map_location))
+    engine.model.load_state_dict(torch.load(args.save + "exp" + str(args.expid) + "_" + str(runid) +".pth"))
 
     print("Training finished")
     print("The valid loss on best model is", str(round(his_loss[bestid],4)))
 
     #valid data
     outputs = []
-    realys = []
-    # realy = torch.Tensor(dataloader['y_val']).to(device)
-    # realy = realy.transpose(1,3)[:,0,:,:]
+    realy = torch.Tensor(dataloader['y_val']).to(device)
+    realy = realy.transpose(1,3)[:,0,:,:]
 
-    for iter, data_val in enumerate(val_loader):
-        data_val = [item.to(device, non_blocking=True) for item in data_val]
-        x_val, y_val = data_val
-        # testx = torch.Tensor(x).to(device)
+    for iter, (x, y) in enumerate(dataloader['val_loader'].get_iterator()):
+        testx = torch.Tensor(x).to(device)
         testx = testx.transpose(1,3)
-        realy = y_val.transpose(1,3)[:,0,:,:]
         with torch.no_grad():
             preds = engine.model(testx)
             preds = preds.transpose(1,3)
         outputs.append(preds.squeeze())
-        realys.append(realy)
 
-    realys = torch.cat(realys, dim=0)
     yhat = torch.cat(outputs,dim=0)
-    yhat = yhat[:realys.size(0),...]
+    yhat = yhat[:realy.size(0),...]
 
 
     pred = scaler.inverse_transform(yhat)
-    vmae, vmape, vrmse = metric(pred,realys)
+    vmae, vmape, vrmse = metric(pred,realy)
 
     #test data
     outputs = []
-    realys = []
-    # realy = torch.Tensor(dataloader['y_test']).to(device)
-    # realy = realy.transpose(1, 3)[:, 0, :, :]
+    realy = torch.Tensor(dataloader['y_test']).to(device)
+    realy = realy.transpose(1, 3)[:, 0, :, :]
 
-    for iter, data in enumerate(test_loader):
-        data = [item.to(device, non_blocking=True) for item in data]
-        testx, testy = data
+    for iter, (x, y) in enumerate(dataloader['test_loader'].get_iterator()):
+        testx = torch.Tensor(x).to(device)
         testx = testx.transpose(1, 3)
-        realy = testy.transpose(1, 3)[:, 0, :, :]
         with torch.no_grad():
             preds = engine.model(testx)
             preds = preds.transpose(1, 3)
         outputs.append(preds.squeeze())
-        realys.append(realy)
 
-    realys = torch.cat(realys, dim=0)
     yhat = torch.cat(outputs, dim=0)
-    yhat = yhat[:realys.size(0), ...]
+    yhat = yhat[:realy.size(0), ...]
 
     mae = []
     mape = []
     rmse = []
     for i in range(args.seq_out_len):
         pred = scaler.inverse_transform(yhat[:, :, i])
-        real = realys[:, :, i]
+        real = realy[:, :, i]
         metrics = metric(pred, real)
         log = 'Evaluate best model on test data for horizon {:d}, Test MAE: {:.4f}, Test MAPE: {:.4f}, Test RMSE: {:.4f}'
         print(log.format(i + 1, metrics[0], metrics[1], metrics[2]))
@@ -327,7 +283,6 @@ if __name__ == "__main__":
     for i in [2,5,11]:
         log = '{:d}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}'
         print(log.format(i+1, amae[i], armse[i], amape[i], smae[i], srmse[i], smape[i]))
-
 
 
 

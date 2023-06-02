@@ -188,8 +188,8 @@ class Decoder(nn.Module):
 
         for i in range(1, self.n_layers):
             # transpose s[i]
-            s[i] = rearrange(s[i], 'b m n -> b n m')
-            next_x = torch.einsum("bnm, bcmt->bcnt",[s[i], x_out])
+            s[i] = rearrange(s[i], 'm n -> n m')
+            next_x = torch.einsum("nm, bcmt->bcnt",[s[i], x_out])
             next_dec_in = torch.cat([x[i], next_x], dim=3)
             x_out = layers[i](next_dec_in, adj[i])
 
