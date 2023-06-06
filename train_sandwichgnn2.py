@@ -24,7 +24,7 @@ def str_to_bool(value):
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--device',type=str,default='cuda:0',help='')
-parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metr_la/7212',help='data path')
+parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metr_la/1212',help='data path')
 
 parser.add_argument('--adj_data', type=str,default='data/adj_mx.pkl',help='adj data path')
 parser.add_argument('--gcn_true', type=str_to_bool, default=True, help='whether to add graph convolution layer')
@@ -46,10 +46,10 @@ parser.add_argument('--end_channels',type=int,default=128,help='end channels')
 
 
 parser.add_argument('--in_dim',type=int,default=2,help='inputs dimension')
-parser.add_argument('--seq_in_len',type=int,default=72,help='input sequence length')
+parser.add_argument('--seq_in_len',type=int,default=12,help='input sequence length')
 parser.add_argument('--seq_out_len',type=int,default=12,help='output sequence length')
 
-parser.add_argument('--layers',type=int,default=3,help='number of layers')
+parser.add_argument('--layers',type=int,default=2,help='number of layers')
 parser.add_argument('--batch_size',type=int,default=32,help='batch size')
 parser.add_argument('--learning_rate',type=float,default=0.001,help='learning rate')
 parser.add_argument('--weight_decay',type=float,default=0.0001,help='weight decay rate')
@@ -57,7 +57,7 @@ parser.add_argument('--clip',type=int,default=5,help='clip')
 parser.add_argument('--step_size1',type=int,default=2500,help='step_size')
 parser.add_argument('--step_size2',type=int,default=100,help='step_size')
 
-parser.add_argument('--epochs',type=int,default=50, help='')
+parser.add_argument('--epochs',type=int,default=1, help='')
 parser.add_argument('--print_every',type=int,default=50,help='')
 parser.add_argument('--seed',type=int,default=101,help='random seed')
 parser.add_argument('--save',type=str,default='./save/',help='save path')
@@ -149,6 +149,8 @@ def main(runid):
         train_rmse = []
         t1 = time.time()
         # dataloader['train_loader'].shuffle()
+        train_loader.sampler.set_epoch(i)
+
         for iter, data in enumerate(train_loader):
             data = [item.to(device, non_blocking=True) for item in data]
             trainx, trainy = data

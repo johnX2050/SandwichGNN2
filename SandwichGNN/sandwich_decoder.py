@@ -19,7 +19,7 @@ class DecoderLayer(nn.Module):
     def __init__(self, gcn_true=True, gcn_depth=2, num_nodes=0, device='cuda:0', predefined_A=None,
                  dropout=0.3,
                  dilation_exponential=1, conv_channels=32, residual_channels=32,
-                 skip_channels=64, end_channels=128, seq_length=72, in_dim=32, out_dim=12, layers=1, propalpha=0.05,
+                 skip_channels=64, end_channels=128, seq_length=12, in_dim=32, out_dim=12, layers=1, propalpha=0.05,
                  layer_norm_affline=True):
         super(DecoderLayer, self).__init__()
 
@@ -148,7 +148,7 @@ class Decoder(nn.Module):
 
         # declare 0 th decoder layer
         # the sequence length is not fixed
-        self.decoder_layers.append(DecoderLayer(num_nodes=69, seq_length=1))
+        self.decoder_layers.append(DecoderLayer(num_nodes=20, seq_length=1))
 
         self.skipE = nn.Conv2d(in_channels=skip_channels, out_channels=skip_channels,
                                kernel_size=(1,n_layers), bias=True)

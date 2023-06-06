@@ -21,7 +21,7 @@ def str_to_bool(value):
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--device',type=str,default='cuda:0',help='')
-parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metr_la/7212',help='data path')
+parser.add_argument('--data',type=str,default='/home/hjl/deep_learning_workspace/data_metr_la/1212',help='data path')
 
 parser.add_argument('--adj_data', type=str,default='data/adj_mx.pkl',help='adj data path')
 parser.add_argument('--gcn_true', type=str_to_bool, default=True, help='whether to add graph convolution layer')
@@ -43,18 +43,18 @@ parser.add_argument('--end_channels',type=int,default=128,help='end channels')
 
 
 parser.add_argument('--in_dim',type=int,default=2,help='inputs dimension')
-parser.add_argument('--seq_in_len',type=int,default=72,help='input sequence length')
+parser.add_argument('--seq_in_len',type=int,default=12,help='input sequence length')
 parser.add_argument('--seq_out_len',type=int,default=12,help='output sequence length')
 
-parser.add_argument('--layers',type=int,default=3,help='number of layers')
-parser.add_argument('--batch_size',type=int,default=16,help='batch size')
+parser.add_argument('--layers',type=int,default=2,help='number of layers')
+parser.add_argument('--batch_size',type=int,default=1,help='batch size')
 parser.add_argument('--learning_rate',type=float,default=0.001,help='learning rate')
 parser.add_argument('--weight_decay',type=float,default=0.0001,help='weight decay rate')
 parser.add_argument('--clip',type=int,default=5,help='clip')
 parser.add_argument('--step_size1',type=int,default=2500,help='step_size')
 parser.add_argument('--step_size2',type=int,default=100,help='step_size')
 
-parser.add_argument('--epochs',type=int,default=30, help='')
+parser.add_argument('--epochs',type=int,default=1, help='')
 parser.add_argument('--print_every',type=int,default=200,help='')
 parser.add_argument('--seed',type=int,default=101,help='random seed')
 parser.add_argument('--save',type=str,default='./save/',help='save path')
@@ -91,16 +91,7 @@ def main(runid):
     # else:
     #     static_feat = None
 
-    # model = gtnet(args.gcn_true, args.buildA_true, args.gcn_depth, args.num_nodes,
-    #               device, predefined_A=predefined_A,
-    #               dropout=args.dropout, subgraph_size=args.subgraph_size,
-    #               node_dim=args.node_dim,
-    #               dilation_exponential=args.dilation_exponential,
-    #               conv_channels=args.conv_channels, residual_channels=args.residual_channels,
-    #               skip_channels=args.skip_channels, end_channels= args.end_channels,
-    #               seq_length=args.seq_in_len, in_dim=args.in_dim, out_dim=args.seq_out_len,
-    #               layers=args.layers, propalpha=args.propalpha, tanhalpha=args.tanhalpha, layer_norm_affline=True)
-    model = SandwichGNN(predefined_A=predefined_A
+    model = SandwichGNN(seq_len=args.seq_in_len, predefined_A=predefined_A
                         ).to(args.device)
 
     print(args)

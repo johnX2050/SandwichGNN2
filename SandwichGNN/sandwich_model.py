@@ -12,7 +12,7 @@ from math import ceil
 
 
 class SandwichGNN(nn.Module):
-    def __init__(self, d_model=32, seq_len=72, predefined_A=None):
+    def __init__(self, seq_len=12, d_model=32, predefined_A=None):
         """
         window_size: list, the downsample window size in pyramidal attention.
         inner_size: int, the size of neighbour attention
@@ -27,7 +27,7 @@ class SandwichGNN(nn.Module):
         # self.x_embed = nn.Linear(2, d_model)
 
         # Encoder
-        self.encoder = Encoder(predefined_A=self.predefined_A, seq_len=72)
+        self.encoder = Encoder(predefined_A=self.predefined_A, seq_len=self.seq_len)
 
         # Decoder
         self.decoder = Decoder()

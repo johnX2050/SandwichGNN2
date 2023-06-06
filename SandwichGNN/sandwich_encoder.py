@@ -15,7 +15,7 @@ class Encoderlayer(nn.Module):
     def __init__(self, next_n_nodes, layer_idx, num_nodes=0, gcn_true=True, buildA_true=True, gcn_depth=2,  device='cuda:0', predefined_A=None,
                  static_feat=None, dropout=0.3, skip_channels=64,
                  subgraph_size=20, node_dim=40, dilation_exponential=1, conv_channels=32, residual_channels=32,
-                 seq_length=72, in_dim=2, out_dim=12, layers=3, propalpha=0.05,
+                 seq_length=12, in_dim=2, out_dim=12, layers=3, propalpha=0.05,
                  tanhalpha=3, layer_norm_affline=True, normalize_before=None):
         super(Encoderlayer, self).__init__()
         self.next_n_nodes = next_n_nodes
@@ -36,6 +36,7 @@ class Encoderlayer(nn.Module):
         self.gc = graph_constructor(num_nodes, subgraph_size, node_dim, device, alpha=tanhalpha, static_feat=static_feat)
 
         self.seq_length = seq_length
+
         kernel_size = 7
         self.kernel_size_ = kernel_size
         if dilation_exponential>1:
@@ -62,13 +63,13 @@ class Encoderlayer(nn.Module):
                                                     kernel_size=(1, 1)))
                 self.skip_convs.append(nn.Conv2d(in_channels=conv_channels,
                                                  out_channels=skip_channels,
-                                                 kernel_size=(1, 72)))
+                                                 kernel_size=(1, self.seq_length)))
 
                 if self.gcn_true:
                     self.gconv1.append(mixprop(conv_channels, residual_channels, gcn_depth, dropout, propalpha))
                     self.gconv2.append(mixprop(conv_channels, residual_channels, gcn_depth, dropout, propalpha))
 
-                self.norm.append(LayerNorm((residual_channels, num_nodes, 72),
+                self.norm.append(LayerNorm((residual_channels, num_nodes, self.seq_length),
                                            elementwise_affine=layer_norm_affline))
 
 
@@ -86,19 +87,19 @@ class Encoderlayer(nn.Module):
         # self.gnn1_pool = GNN(residual_channels, residual_channels, self.next_n_nodes)
         self.assign_matrix = Parameter(torch.randn(num_nodes, next_n_nodes).to(device, non_blocking=True), requires_grad=True)
 
-        if self.layer_idx == 1:
-            self.projMLP = Seq(Lin(180, 54), ReLU(inplace=True))
-        elif self.layer_idx == 2:
-            self.projMLP = Seq(Lin(126, 36), ReLU(inplace=True))
+        # if self.layer_idx == 1:
+        #     self.projMLP = Seq(Lin(180, 54), ReLU(inplace=True))
+        # elif self.layer_idx == 2:
+        #     self.projMLP = Seq(Lin(126, 36), ReLU(inplace=True))
 
         self.adp_mlp = Seq(Lin(32, 1), ReLU(inplace=True))
-        self.t_leng_proj_mlp = Seq(Lin(108, 72), ReLU(inplace=True))
+        self.t_leng_proj_mlp = Seq(Lin(int(self.seq_length * 1.5), self.seq_length), ReLU(inplace=True))
 
         # for t attention
         d_x_in = 32
         self.window_size = [2]
         self.inner_size = 5
-        self.in_len = 72
+        self.in_len = seq_length
         d_model = 32
         n_heads = 4
         d_inner = 32
@@ -123,8 +124,8 @@ class Encoderlayer(nn.Module):
         skip = skip
 
         # assert seq_len==self.seq_length, 'input sequence length not equal to preset sequence length'
-        if seq_len < self.receptive_field:
-            x = nn.functional.pad(x,(self.receptive_field-seq_len,0,0,0))
+        # if seq_len < self.receptive_field:
+        #     x = nn.functional.pad(x,(self.receptive_field-seq_len,0,0,0))
 
         if self.gcn_true:
             if self.buildA_true:
@@ -206,7 +207,7 @@ class Encoder(nn.Module):
 
     def __init__(self, seq_len, n_nodes=207, n_layers=2, in_dim=2, residual_channels=32,
                  skip_channels=64,
-                 s_factor=3, predefined_A=None,
+                 s_factor=10, predefined_A=None,
                  dropout=0.3
                  ):
         super(Encoder, self).__init__()
@@ -223,20 +224,19 @@ class Encoder(nn.Module):
                                     kernel_size=(1, 1))
         self.skip0 = nn.Conv2d(in_channels=residual_channels,
                                out_channels=skip_channels,
-                               kernel_size=(1, 72))
+                               kernel_size=(1, self.seq_len))
 
         self.encoder_layers = nn.ModuleList([
             Encoderlayer(num_nodes=207, layer_idx=1, next_n_nodes=int(n_nodes // s_factor), predefined_A=self.predefined_A,
-                         seq_length=72)]
+                         seq_length=self.seq_len)]
         )
 
         for i in range(1, n_layers):
             cur_n_nodes = int(n_nodes // math.pow(s_factor, i))
             next_n_nodes = int(cur_n_nodes // s_factor)
             # seq_length = self.seq_len - (18 * i)
-            seq_length = 72
             self.encoder_layers.append(
-                Encoderlayer(num_nodes=cur_n_nodes, layer_idx=i+1, next_n_nodes=next_n_nodes, seq_length=seq_length)
+                Encoderlayer(num_nodes=cur_n_nodes, layer_idx=i+1, next_n_nodes=next_n_nodes, seq_length=self.seq_len)
             )
 
     def forward(self, x, idx=None):
