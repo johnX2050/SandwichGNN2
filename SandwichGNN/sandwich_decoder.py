@@ -148,7 +148,8 @@ class Decoder(nn.Module):
 
         # declare 0 th decoder layer
         # the sequence length is not fixed
-        self.decoder_layers.append(DecoderLayer(num_nodes=20, seq_length=1))
+        # 10 is dynamic
+        self.decoder_layers.append(DecoderLayer(num_nodes=10, seq_length=1))
 
         self.skipE = nn.Conv2d(in_channels=skip_channels, out_channels=skip_channels,
                                kernel_size=(1,n_layers), bias=True)
@@ -188,8 +189,8 @@ class Decoder(nn.Module):
 
         for i in range(1, self.n_layers):
             # transpose s[i]
-            s[i] = rearrange(s[i], 'm n -> n m')
-            next_x = torch.einsum("nm, bcmt->bcnt",[s[i], x_out])
+            s[i-1] = rearrange(s[i-1], 'm n -> n m')
+            next_x = torch.einsum("nm, bcmt->bcnt",[s[i-1], x_out])
             next_dec_in = torch.cat([x[i], next_x], dim=3)
             x_out = layers[i](next_dec_in, adj[i])
 
